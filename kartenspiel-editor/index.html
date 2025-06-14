@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Karten‑Editor – Modular</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#f2f2f2;margin:0;padding:20px}
+    h1{margin-top:0}
+    .editor{display:flex;flex-wrap:wrap;gap:40px}
+    .controls{flex:0 0 300px}
+    .preview{flex:0 0 320px;min-height:440px}
+    select,input,textarea{width:100%;padding:8px;margin:6px 0;font-size:14px}
+    textarea{resize:vertical}
+    .hidden{display:none}
+    /* SIMPLE PLACEHOLDER CARD FRAMES */
+    .card{width:300px;height:420px;border:3px solid #333;border-radius:14px;padding:12px;position:relative;background:#fff;box-shadow:0 4px 10px rgba(0,0,0,.25)}
+    .card.person{background:linear-gradient(#ffe066 40%,#fff 40%)}
+    .card.item{background:linear-gradient(#c8e6ff 40%,#fff 40%)}
+    .card.support{background:linear-gradient(#f5c7ff 40%,#fff 40%)}
+    .card.energy{display:flex;align-items:center;justify-content:center;background:#e3e3e3;font-size:28px;font-weight:bold}
+    .card h2{margin:0;font-size:20px}
+    .hp{color:#e74c3c;font-weight:bold}
+    .portrait{height:150px;background:#ddd;border:2px solid #aaa;border-radius:8px;margin:8px 0;background-size:cover;background-position:center}
+    .ability{border:1px solid #aaa;border-radius:6px;padding:6px;margin:6px 0;font-size:12px}
+    .footer{position:absolute;bottom:8px;font-size:10px;color:#444}
+  </style>
+</head>
+<body>
+  <h1>🃏 Karten‑Editor (Prototyp&nbsp;B)</h1>
+
+  <!-- Card‑Type Selector -->
+  <label for="cardType"><strong>Kartentyp wählen:</strong></label>
+  <select id="cardType">
+    <option value="person">Person</option>
+    <option value="item">Item</option>
+    <option value="support">Unterstützer</option>
+    <option value="energy">Energie</option>
+  </select>
+
+  <div class="editor">
+    <!-- =================== CONTROL PANELS =================== -->
+    <div class="controls">
+      <!-- PERSON FORM -->
+      <div id="formPerson" class="card-form">
+        <input id="pName" placeholder="Name" />
+        <input id="pRole" placeholder="Rolle / Titel" />
+        <input id="pHP" type="number" placeholder="KP" />
+        <textarea id="pAttack1" placeholder="Attacke 1 (Beschreibung)"></textarea>
+        <textarea id="pAttack2" placeholder="Attacke 2 (Beschreibung)"></textarea>
+      </div>
+
+      <!-- ITEM FORM -->
+      <div id="formItem" class="card-form hidden">
+        <input id="iTitle" placeholder="Item‑Titel" />
+        <textarea id="iText" placeholder="Effekttext"></textarea>
+      </div>
+
+      <!-- SUPPORT FORM -->
+      <div id="formSupport" class="card-form hidden">
+        <input id="sName" placeholder="Unterstützer‑Name" />
+        <textarea id="sText" placeholder="Effekttext"></textarea>
+      </div>
+
+      <!-- ENERGY FORM -->
+      <div id="formEnergy" class="card-form hidden">
+        <label>Energie‑Typ:</label>
+        <select id="eType">
+          <option>Forschung</option>
+          <option>Lehre</option>
+          <option>Verwaltung</option>
+          <option>Kommunikation</option>
+          <option>Kooperation</option>
+          <option>Strategie</option>
+          <option>Digitalisierung</option>
+          <option>Innovation</option>
+          <option>Mobilität</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- =================== PREVIEW PANELS =================== -->
+    <div class="preview">
+      <!-- PERSON PREVIEW -->
+      <div id="prevPerson" class="card person">
+        <div style="display:flex;justify-content:space-between"><h2 id="outPName">[Name]</h2><span class="hp" id="outPHP">KP 0</span></div>
+        <div class="portrait" id="outPortrait" style="background-image:url('')"></div>
+        <div class="ability" id="outAttack1">[Attacke 1]</div>
+        <div class="ability" id="outAttack2">[Attacke 2]</div>
+        <div class="footer">Basis • Personenkarte</div>
+      </div>
+
+      <!-- ITEM PREVIEW -->
+      <div id="prevItem" class="card item hidden">
+        <h2 id="outITitle">[Item]</h2>
+        <div class="ability" id="outIText">[Effekttext]</div>
+        <div class="footer">Item‑Karte</div>
+      </div>
+
+      <!-- SUPPORT PREVIEW -->
+      <div id="prevSupport" class="card support hidden">
+        <h2 id="outSName">[Unterstützer]</h2>
+        <div class="ability" id="outSText">[Effekttext]</div>
+        <div class="footer">Unterstützer‑Karte • 1× pro Runde</div>
+      </div>
+
+      <!-- ENERGY PREVIEW -->
+      <div id="prevEnergy" class="card energy hidden">
+        <span id="outEType">Energie</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const cardTypeSel=document.getElementById('cardType');
+    const forms={person:document.getElementById('formPerson'),item:document.getElementById('formItem'),support:document.getElementById('formSupport'),energy:document.getElementById('formEnergy')};
+    const previews={person:document.getElementById('prevPerson'),item:document.getElementById('prevItem'),support:document.getElementById('prevSupport'),energy:document.getElementById('prevEnergy')};
+
+    function showType(type){Object.values(forms).forEach(f=>f.classList.add('hidden'));Object.values(previews).forEach(p=>p.classList.add('hidden'));forms[type].classList.remove('hidden');previews[type].classList.remove('hidden');updatePreview();}
+
+    cardTypeSel.addEventListener('change',e=>showType(e.target.value));
+
+    /* === PERSON FORM === */
+    document.getElementById('pName').addEventListener('input',e=>{document.getElementById('outPName').textContent=e.target.value||'[Name]'});
+    document.getElementById('pHP').addEventListener('input',e=>{document.getElementById('outPHP').textContent='KP '+(e.target.value||'0')});
+    document.getElementById('pAttack1').addEventListener('input',e=>{document.getElementById('outAttack1').textContent=e.target.value||'[Attacke 1]'});
+    document.getElementById('pAttack2').addEventListener('input',e=>{document.getElementById('outAttack2').textContent=e.target.value||'[Attacke 2]'});
+    /* === ITEM === */
+    document.getElementById('iTitle').addEventListener('input',e=>{document.getElementById('outITitle').textContent=e.target.value||'[Item]'});
+    document.getElementById('iText').addEventListener('input',e=>{document.getElementById('outIText').textContent=e.target.value||'[Effekttext]'});
+    /* === SUPPORT === */
+    document.getElementById('sName').addEventListener('input',e=>{document.getElementById('outSName').textContent=e.target.value||'[Unterstützer]'});
+    document.getElementById('sText').addEventListener('input',e=>{document.getElementById('outSText').textContent=e.target.value||'[Effekttext]'});
+    /* === ENERGY === */
+    document.getElementById('eType').addEventListener('change',e=>{document.getElementById('outEType').textContent=e.target.value});
+
+    function updatePreview(){}
+    // Initial
+    showType('person');
+  </script>
+</body>
+</html>
