@@ -1,0 +1,51 @@
+/* ================================= */
+/* 1) Preview-Container clippt alles */
+/* ================================= */
+.preview {
+  height: 420px;    /* genauso hoch wie die Karte */
+  overflow: hidden; /* alles, was darüber hinauswächst, wird abgeschnitten */
+}
+
+/* ================================= */
+/* 2) Karte – feste Höhe und Clip    */
+/* ================================= */
+.card {
+  width: 300px;        /* Breite beibehalten */
+  height: 420px;       /* Ganze Karte fixieren */
+  max-height: 420px;   /* Doppelt absichern */
+  overflow: hidden;    /* Überschuss verschwindet */
+  
+  position: relative;  /* für den Footer */
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* ================================= */
+/* 3) Fähigkeit/Attacke – Auto-Grow  */
+/* ================================= */
+.ability {
+  border: 1px solid #aaa;
+  border-radius: 6px;
+  padding: 6px;
+  margin: 6px 0;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+
+  height: auto;        /* wächst mit dem Text */
+  overflow: hidden;    /* kein Scrollen in der Box */
+  flex-shrink: 0;      /* wird nicht gestaucht */
+}
+
+/* ================================= */
+/* 4) Footer unten                  */
+/* ================================= */
+.footer {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  font-size: 10px;
+  color: #444;
+  margin: 0;
+}
