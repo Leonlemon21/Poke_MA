@@ -2,107 +2,507 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Karten‑Editor – Personenkarte</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PokéCard Editor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
-    h1 { margin-top: 0; }
-    .editor { display: flex; gap: 40px; }
-    .controls { flex: 0 0 300px; }
-    .preview { flex: 0 0 auto; }
-
-    select, input, textarea { width: 100%; padding: 8px; margin: 6px 0; font-size: 14px; box-sizing: border-box; }
-    textarea {
-      resize: none;
-      overflow: hidden;
-      min-height: 60px;
+    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f5f5f5; }
+    nav { display:flex; background:#333; }
+    nav button { flex:1; padding:15px; color:#fff; background:none; border:none; cursor:pointer; }
+    nav button.active { background:#555; }
+    section { display:none; padding:20px; }
+    section.active { display:block; }
+    .controls {
+      float:left; width:320px; height:calc(100vh - 40px); overflow-y:auto;
+      display:flex; flex-direction:column; gap:10px;
     }
-
-    .card {
-      width: 300px;
-      height: 420px; /* feste Kartengröße wiederhergestellt */
-      border: 3px solid #333;
-      border-radius: 14px;
-      padding: 12px;
-      background: #fff;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-      position: relative;      
-      box-sizing: border-box;
-      overflow: hidden; /* überschüssiger Inhalt wird ausgeblendet */
+    .controls label { font-weight:bold; }
+    .controls input, .controls select, .controls textarea, .controls button {
+      padding:6px; font-size:14px; box-sizing:border-box; font-family:inherit;
     }
-    .card.person { background: linear-gradient(#ffe066 40%,#fff 40%); }
-    .card h2 { margin: 0; font-size: 20px; }
-    .hp { position: absolute; top: 12px; right: 16px; color: #e74c3c; font-weight: bold; }
-    .portrait {
-      height: 150px;
-      background: #ddd;
-      border: 2px solid #aaa;
-      border-radius: 8px;
-      margin: 4px 0 8px;
-      background-size: cover;
-      background-position: center;
-      flex-shrink: 0;
+    .controls textarea {
+      resize:none; overflow:hidden; line-height:16px;
+      white-space:pre-wrap; word-wrap:break-word; min-height:1.2em;
     }
-    .ability {
-      border: 1px solid #aaa;
-      border-radius: 6px;
-      padding: 6px;
-      margin: 6px 0;
-      font-size: 12px;
-      white-space: pre-wrap;
-      overflow-wrap: break-word;
-      word-break: break-all;
-      max-height: 60px; /* feste Höhe für Textbox */
-      overflow-y: auto; /* Scrollbar, wenn der Text länger ist */
+    #lblEvoName, #pEvoName { display:none; }
+    .preview { margin-left:340px; }
+    #cardCanvas {
+      width:6.3cm; height:8.8cm;
+      box-shadow:0 4px 10px rgba(0,0,0,0.25);
+      border-radius:14px; background:#fff;
     }
-    .footer { position: absolute; bottom: 8px; left: 12px; font-size: 10px; color: #444; }
+    #card-list label.card-label { display:inline-block; margin:5px; text-align:center; position:relative; }
+    #card-list img { display:block; width:126px; height:176px; border:1px solid #ccc; margin-top:5px; }
+    #toast {
+      position:fixed; bottom:20px; right:20px;
+      background:rgba(0,0,0,0.8); color:#fff; padding:10px 20px;
+      border-radius:5px; opacity:0; transition:opacity .3s; pointer-events:none;
+    }
+    #toast.show { opacity:1; }
   </style>
 </head>
 <body>
-  <h1>🃏 Karten‑Editor – Personenkarte</h1>
-  <div class="editor">
+  <nav>
+    <button id="tab-create" class="active">Erstellen</button>
+    <button id="tab-deck">Deck</button>
+  </nav>
+
+  <section id="page-create" class="active">
     <div class="controls">
-      <input id="pName" placeholder="Name" />
-      <input id="pRole" placeholder="Rolle / Titel" />
-      <input id="pHP" type="number" placeholder="KP" />
-      <textarea id="pAttack1" placeholder="Attacke 1 (Beschreibung)"></textarea>
-      <textarea id="pAttack2" placeholder="Attacke 2 (Beschreibung)"></textarea>
+      <label for="pStage">Stage:</label>
+      <select id="pStage">
+        <option>Basic</option>
+        <option>Stage 1</option>
+        <option>Stage 2</option>
+      </select>
+
+      <label id="lblEvoName" for="pEvoName">Evo-Name (max 13):</label>
+      <input id="pEvoName" type="text" maxlength="13">
+
+      <label for="pType">Typ:</label>
+      <select id="pType">
+        <option value="energie-digitalisierung">Digitalisierung</option>
+        <option value="energie-forschung">Forschung</option>
+        <option value="energie-innovation">Innovation</option>
+        <option value="energie-kommunikation">Kommunikation</option>
+        <option value="energie-kooperation">Kooperation</option>
+        <option value="energie-lehre">Lehre</option>
+        <option value="energie-mobilität">Mobilität</option>
+        <option value="energie-strategie">Strategie</option>
+        <option value="energie-verwaltung">Verwaltung</option>
+      </select>
+
+      <label for="pName">Name (max 13):</label>
+      <input id="pName" type="text" maxlength="13">
+
+      <label><input id="pEX" type="checkbox"> EX</label>
+
+      <label for="pHP">AP:</label>
+      <input id="pHP" type="number" min="1" max="999" value="1">
+
+      <label for="pImage">Portrait:</label>
+      <input id="pImage" type="file" accept="image/*">
+
+      <label for="pAtk1">Attacke 1:</label>
+      <textarea id="pAtk1"></textarea>
+      <label for="pAtk1Num">Nr.:</label>
+      <input id="pAtk1Num" type="text" maxlength="3">
+      <label for="pAtk1EnergyIcon">Kategorie 1:</label>
+      <select id="pAtk1EnergyIcon">
+        <option>energie-digitalisierung</option>
+        <option>energie-forschung</option>
+        <option>energie-innovation</option>
+        <option>energie-kommunikation</option>
+        <option>energie-kooperation</option>
+        <option>energie-lehre</option>
+        <option>energie-mobilität</option>
+        <option>energie-strategie</option>
+        <option>energie-verwaltung</option>
+      </select>
+      <button id="undoAtk1Energy" type="button">Undo 1</button>
+
+      <label for="pAtk2">Attacke 2:</label>
+      <textarea id="pAtk2"></textarea>
+      <label for="pAtk2Num">Nr.:</label>
+      <input id="pAtk2Num" type="text" maxlength="3">
+      <label for="pAtk2EnergyIcon">Kategorie 2:</label>
+      <select id="pAtk2EnergyIcon">
+        <option>energie-digitalisierung</option>
+        <option>energie-forschung</option>
+        <option>energie-innovation</option>
+        <option>energie-kommunikation</option>
+        <option>energie-kooperation</option>
+        <option>energie-lehre</option>
+        <option>energie-mobilität</option>
+        <option>energie-strategie</option>
+        <option>energie-verwaltung</option>
+      </select>
+      <button id="undoAtk2Energy" type="button">Undo 2</button>
+
+      <label for="pWeaknessIcon">Weakness:</label>
+      <select id="pWeaknessIcon">
+        <option value="">—</option>
+        <option value="energie-digitalisierung">Digitalisierung</option>
+        <option value="energie-forschung">Forschung</option>
+        <option value="energie-innovation">Innovation</option>
+        <option value="energie-kommunikation">Kommunikation</option>
+        <option value="energie-kooperation">Kooperation</option>
+        <option value="energie-lehre">Lehre</option>
+        <option value="energie-mobilität">Mobilität</option>
+        <option value="energie-strategie">Strategie</option>
+        <option value="energie-verwaltung">Verwaltung</option>
+      </select>
+      <label for="pWeaknessNum">+ / ×:</label>
+      <select id="pWeaknessNum">
+        <option></option><option>+10</option><option>+20</option><option>+30</option><option>+40</option><option>×2</option>
+      </select>
+
+      <label for="pResistanceIcon">Resistance:</label>
+      <select id="pResistanceIcon">
+        <option value="">—</option>
+        <option value="energie-digitalisierung">Digitalisierung</option>
+        <option value="energie-forschung">Forschung</option>
+        <option value="energie-innovation">Innovation</option>
+        <option value="energie-kommunikation">Kommunikation</option>
+        <option value="energie-kooperation">Kooperation</option>
+        <option value="energie-lehre">Lehre</option>
+        <option value="energie-mobilität">Mobilität</option>
+        <option value="energie-strategie">Strategie</option>
+        <option value="energie-verwaltung">Verwaltung</option>
+      </select>
+      <label for="pResistanceNum">+ / ×:</label>
+      <select id="pResistanceNum">
+        <option></option><option>+10</option><option>+20</option><option>+30</option><option>+40</option><option>×2</option>
+      </select>
+
+      <label for="pRetreatCount">Retreat:</label>
+      <select id="pRetreatCount">
+        <option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+      </select>
+
+      <button id="save" type="button">Speichern</button>
     </div>
     <div class="preview">
-      <div id="prevPerson" class="card person">
-        <h2 id="outPName">[Name]</h2>
-        <span class="hp" id="outPHP">KP 0</span>
-        <div class="portrait" id="outPortrait"></div>
-        <div class="ability" id="outAttack1">[Attacke 1]</div>
-        <div class="ability" id="outAttack2">[Attacke 2]</div>
-        <div class="footer">Basis • Personenkarte</div>
-      </div>
+      <canvas id="cardCanvas" width="900" height="1260"></canvas>
     </div>
-  </div>
+  </section>
+
+  <section id="page-deck">
+    <h2>Deck <button id="delete-selected" type="button">Löschen</button></h2>
+    <div id="card-list">Keine gespeicherten Karten.</div>
+    <button id="gen-pdf" type="button">PDF generieren</button>
+  </section>
+
+  <div id="toast"></div>
+
   <script>
-    // Auto-grow form textareas
-    const autoGrow = el => {
-      el.style.height = 'auto';
-      el.style.height = el.scrollHeight + 'px';
+  window.addEventListener('DOMContentLoaded', () => {
+    const $ = id => document.getElementById(id);
+    const toast = $('toast');
+    const showToast = msg => {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
     };
-    document.querySelectorAll('textarea').forEach(el => {
-      el.addEventListener('input', () => autoGrow(el));
-      autoGrow(el);
+
+    // Tabs
+    const tabC = $('tab-create'), tabD = $('tab-deck');
+    const pgC = $('page-create'), pgD = $('page-deck');
+    function switchTab(toCreate) {
+      tabC.classList.toggle('active', toCreate);
+      tabD.classList.toggle('active', !toCreate);
+      pgC.classList.toggle('active', toCreate);
+      pgD.classList.toggle('active', !toCreate);
+      if (!toCreate) loadDeckFromServer();
+    }
+    tabC.addEventListener('click', () => switchTab(true));
+    tabD.addEventListener('click', () => switchTab(false));
+
+    // Canvas setup
+    const canvas = $('cardCanvas'), ctx = canvas.getContext('2d');
+    const BASE_W = 300, SCALE = canvas.width / BASE_W;
+    const px = 25 * SCALE, py = 39 * SCALE;
+    const pw = canvas.width - 2 * px, ph = 160 * SCALE;
+    const lineH = 16 * SCALE;
+
+    // Control refs
+    const cEls = {
+      stage: $('pStage'),
+      type: $('pType'),
+      evoLabel: $('lblEvoName'),
+      evoInput: $('pEvoName'),
+      name: $('pName'),
+      ex: $('pEX'),
+      hp: $('pHP'),
+      image: $('pImage'),
+      atk1: $('pAtk1'),
+      atk1Num: $('pAtk1Num'),
+      e1: $('pAtk1EnergyIcon'),
+      undo1: $('undoAtk1Energy'),
+      atk2: $('pAtk2'),
+      atk2Num: $('pAtk2Num'),
+      e2: $('pAtk2EnergyIcon'),
+      undo2: $('undoAtk2Energy'),
+      weakIcon: $('pWeaknessIcon'),
+      weakNum: $('pWeaknessNum'),
+      resIcon: $('pResistanceIcon'),
+      resNum: $('pResistanceNum'),
+      retreat: $('pRetreatCount')
+    };
+
+    // Images & masks
+    const bgImg = new Image(), typeImg = new Image(), portrait = new Image();
+    const weakImg = new Image(), resImg = new Image(), retreatImg = new Image();
+    retreatImg.src = 'retreat/retreat.png';
+
+    function makeCircleMask(img, size) {
+      const oc = document.createElement('canvas');
+      oc.width = oc.height = size;
+      const octx = oc.getContext('2d');
+      octx.beginPath();
+      octx.arc(size/2, size/2, size/2, 0, 2*Math.PI);
+      octx.clip();
+      octx.drawImage(img, 0, 0, size, size);
+      return oc;
+    }
+    let weakMask = null, resMask = null, retreatMask = null, iconSizePx;
+    [ [weakImg, m=>weakMask=m],
+      [resImg,  m=>resMask=m],
+      [retreatImg, m=>retreatMask=m]
+    ].forEach(([img,setter])=>{
+      img.addEventListener('load', ()=>{
+        iconSizePx = Math.round(15 * SCALE);
+        setter(makeCircleMask(img, iconSizePx));
+        drawCard();
+      });
     });
 
-    // Sync form inputs to preview
-    const sync = (inputId, outId) => {
-      const inp = document.getElementById(inputId);
-      const out = document.getElementById(outId);
-      out.setAttribute('data-placeholder', out.textContent);
-      inp.addEventListener('input', () => {
-        out.textContent = inp.value || out.getAttribute('data-placeholder');
-      });
+    // Type map & update
+    const typeMap = {
+      'energie-digitalisierung':'Grass',
+      'energie-forschung':'Water',
+      'energie-innovation':'Dragon',
+      'energie-kommunikation':'Fighting',
+      'energie-kooperation':'Metal',
+      'energie-lehre':'Psychic',
+      'energie-mobilität':'Dark',
+      'energie-strategie':'Lightning',
+      'energie-verwaltung':'Fire'
     };
-    sync('pName','outPName');
-    document.getElementById('pHP').addEventListener('input', e => document.getElementById('outPHP').textContent = 'KP ' + (e.target.value || '0'));
-    sync('pAttack1','outAttack1');
-    sync('pAttack2','outAttack2');
+    function updateBackgroundAndType() {
+      const cat = cEls.type.value;
+      const typeName = typeMap[cat] || 'Colorless';
+      const stageKey = cEls.stage.value.toLowerCase();
+      bgImg.src = `Normal low-res/${typeName} ${stageKey}.png`;
+      typeImg.src = `weakness/${cat}.png`;
+    }
+    cEls.type.addEventListener('change', updateBackgroundAndType);
+    cEls.stage.addEventListener('change', updateBackgroundAndType);
+    bgImg.addEventListener('load', drawCard);
+    typeImg.addEventListener('load', drawCard);
+    updateBackgroundAndType();
+
+    // Evo toggle
+    cEls.stage.addEventListener('change', () => {
+      const show = cEls.stage.value !== 'Basic';
+      cEls.evoLabel.style.display = show ? 'block' : 'none';
+      cEls.evoInput.style.display = show ? 'block' : 'none';
+      drawCard();
+    });
+
+    // Portrait upload
+    cEls.image.addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (f) portrait.src = URL.createObjectURL(f);
+    });
+    portrait.addEventListener('load', drawCard);
+
+    // Auto-grow textareas
+    document.querySelectorAll('textarea').forEach(el => {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+      el.addEventListener('input', () => {
+        el.style.height = 'auto';
+        el.style.height = el.scrollHeight + 'px';
+        drawCard();
+      });
+    });
+
+    // Redraw on input/change
+    document.querySelectorAll('.controls input, .controls select').forEach(el => {
+      el.addEventListener('input', drawCard);
+      el.addEventListener('change', drawCard);
+    });
+
+    // Bind attack energy icons
+    const atk1Imgs = [], atk2Imgs = [];
+    function bindEnergy(arr, sel) {
+      sel.addEventListener('change', () => {
+        const v = sel.value;
+        if (v && arr.length < 5) {
+          const im = new Image();
+          im.src = `weakness/${v}.png`;
+          im.addEventListener('load', drawCard);
+          arr.push(im);
+        }
+        sel.value = '';
+      });
+    }
+    bindEnergy(atk1Imgs, cEls.e1);
+    cEls.undo1.addEventListener('click', () => { atk1Imgs.pop(); drawCard(); });
+    bindEnergy(atk2Imgs, cEls.e2);
+    cEls.undo2.addEventListener('click', () => { atk2Imgs.pop(); drawCard(); });
+
+    cEls.weakIcon.addEventListener('change', () => {
+      weakImg.src = cEls.weakIcon.value ? `weakness/${cEls.weakIcon.value}.png` : '';
+      drawCard();
+    });
+    cEls.resIcon.addEventListener('change', () => {
+      resImg.src = cEls.resIcon.value ? `weakness/${cEls.resIcon.value}.png` : '';
+      drawCard();
+    });
+
+    // Wrap text helper
+    function wrapText(ctx, text, x, y, maxW, lh) {
+      const words = text.split(' '), lineHeight = lh;
+      let line = '', yy = y;
+      for (const w of words) {
+        const test = line + w + ' ';
+        if (ctx.measureText(test).width > maxW && line) {
+          ctx.fillText(line.trim(), x, yy);
+          line = w + ' ';
+          yy += lineHeight;
+        } else {
+          line = test;
+        }
+      }
+      ctx.fillText(line.trim(), x, yy);
+      return yy;
+    }
+
+    // Main draw
+    function drawCard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (bgImg.complete) ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+      else { ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+
+   if (portrait.src) ctx.drawImage(portrait, px + 4, py + 13, pw - 5, ph +12);
+
+      // Evo-Name before portrait
+      if (cEls.stage.value !== 'Basic') {
+        const fs = 14 * SCALE, pad = 4 * SCALE;
+        ctx.font = `${fs}px Arial bold`; ctx.textBaseline='top';
+        const txt = cEls.evoInput.value.trim().slice(0,13);
+        const tw = ctx.measureText(txt).width, rh = fs + pad*2;
+        ctx.fillStyle='#c0c0c0'; ctx.fillRect(px,py, tw+pad*2, rh);
+        ctx.fillStyle='#000'; ctx.fillText(txt, px+pad, py+pad);
+      }
+
+      // Type icon
+      const ts=50*SCALE, tm=10*SCALE;
+      if (typeImg.src) ctx.drawImage(typeImg, canvas.width-ts-tm, tm, ts, ts);
+
+      // Name/AP/EX
+      ctx.textBaseline='alphabetic';
+      const nm = cEls.name.value.trim().slice(0,13);
+      ctx.font=`${18*SCALE}px Arial bold`; ctx.fillStyle='#333';
+      ctx.fillText(nm, px + 135 , 30*SCALE);
+      const nmW=ctx.measureText(nm).width;
+      const hp = Math.min(Math.max(parseInt(cEls.hp.value,10)||1,1),999);
+      ctx.font=`${16*SCALE}px Arial bold`; ctx.fillStyle='#e74c3c';
+      ctx.fillText('AP '+hp, px+ 100+nmW+20*SCALE, 30*SCALE);
+      if (cEls.ex.checked) {
+        ctx.font=`${14*SCALE}px Arial italic bold`; ctx.fillStyle='#e74c3c';
+        ctx.fillText('EX', px + 30, py+ 30-10*SCALE);
+      }
+
+      // Attacks
+      const es=16*SCALE, sp=4*SCALE, mx=pw-2*px;
+      let y0=py+ph+40*SCALE;
+      atk1Imgs.forEach((im,i)=>{
+        const x=px+i*(es+sp), y=y0-es;
+        ctx.save(); ctx.beginPath();
+        ctx.arc(x+es/2,y+es/2,es/2,0,2*Math.PI);
+        ctx.clip(); ctx.drawImage(im,x,y,es,es);
+        ctx.restore();
+      });
+      ctx.fillStyle='#000'; ctx.font=`${14*SCALE}px Arial`;
+      wrapText(ctx, cEls.atk1.value.trim(), px, y0 + 35, mx, lineH);
+      const num1=cEls.atk1Num.value.trim();
+      if (num1) ctx.fillText(num1, canvas.width-px-ctx.measureText(num1).width, y0 + 35);
+
+      const lines1=Math.ceil(ctx.measureText(cEls.atk1.value).width/mx);
+      y0+=(lines1+1)*lineH;
+      atk2Imgs.forEach((im,i)=>{
+        const x=px+i*(es+sp), y=y0-es;
+        ctx.save(); ctx.beginPath();
+        ctx.arc(x+es/2,y+es/2,es/2,0,2*Math.PI);
+        ctx.clip(); ctx.drawImage(im,x,y,es,es);
+        ctx.restore();
+      });
+      wrapText(ctx, cEls.atk2.value.trim(), px, y0 + 35, mx, lineH);
+      const num2=cEls.atk2Num.value.trim();
+      if (num2) ctx.fillText(num2, canvas.width-px-ctx.measureText(num2).width, y0 + 35);
+
+      // Weakness
+      if (weakMask) {
+        const wy=canvas.height-60*SCALE;
+        ctx.drawImage(weakMask, px, wy + 13, iconSizePx, iconSizePx);
+        if (cEls.weakNum.value) {
+          ctx.font=`${14*SCALE}px Arial`; ctx.fillStyle='#000';
+          ctx.fillText(cEls.weakNum.value, px+iconSizePx+4*SCALE, wy + 15 +iconSizePx/2+5*SCALE);
+        }
+      }
+      // Resistance
+      if (resMask) {
+        const rx=px+30*SCALE, ry=canvas.height-60*SCALE;
+        ctx.drawImage(resMask, rx + 73, ry + 13, iconSizePx, iconSizePx);
+        if (cEls.resNum.value) {
+          ctx.font=`${14*SCALE}px Arial`; ctx.fillStyle='#000';
+          ctx.fillText(cEls.resNum.value, rx+ 73+iconSizePx+4*SCALE, ry + 15 +iconSizePx/2+5*SCALE);
+        }
+      }
+      // Retreat
+      const ryRet=canvas.height-40*SCALE;
+      for (let i=0;i<parseInt(cEls.retreat.value,10)||0;i++){
+        const x=canvas.width-(i+1)*(iconSizePx+4*SCALE);
+        if (retreatMask) ctx.drawImage(retreatMask, x - 535, ryRet + 40, iconSizePx, iconSizePx);
+      }
+    }
+
+    // --- Server Save/Delete/Load & PDF 3x3 ---
+    async function saveCardToServer() {
+      const dataURL=canvas.toDataURL('image/png'),
+            filename=`karte-${Date.now()}.png`;
+      const resp=await fetch('/save-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename,dataURL})});
+      const j=await resp.json();
+      if (j.success) { showToast('Karte gespeichert!'); loadDeckFromServer(); } else alert('Speicher-Fehler: '+j.error);
+    }
+    $('save').addEventListener('click',saveCardToServer);
+
+    async function deleteSelected(){
+      const checks=[...document.querySelectorAll('#card-list input:checked')];
+      if (!checks.length){ showToast('Keine Karte markiert!'); return; }
+      const filenames=checks.map(cb=>
+        document.querySelectorAll('#card-list img')[ [...document.querySelectorAll('#card-list input')].indexOf(cb) ].src.split('/').pop()
+      );
+      const resp=await fetch('/delete-cards',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filenames})});
+      const j=await resp.json();
+      if (j.success){ showToast('Gelöscht!'); loadDeckFromServer(); } else alert('Lösch-Fehler: '+j.error);
+    }
+    $('delete-selected').addEventListener('click',deleteSelected);
+
+    $('gen-pdf').addEventListener('click',()=>{
+      const {jsPDF}=window.jspdf;
+      const doc=new jsPDF({unit:'mm',format:'a4'});
+      const imgs=Array.from(document.querySelectorAll('#card-list img'));
+      const sel=Array.from(document.querySelectorAll('#card-list input:checked')).map(cb=>imgs[[...document.querySelectorAll('#card-list input')].indexOf(cb)]);
+      if (!sel.length){ showToast('Mindestens eine Karte wählen'); return; }
+      sel.forEach((img,i)=>{
+        if (i>0 && i%9===0) doc.addPage();
+        const col=i%3, row=Math.floor(i/3)%3;
+        const x=10+col*63, y=10+row*88;
+        doc.addImage(img.src,'PNG',x,y,63,88);
+      });
+      doc.save('Deck.pdf');
+    });
+
+    async function loadDeckFromServer(){
+      const resp=await fetch('/list-cards'), j=await resp.json(), list=$('card-list');
+      if (!j.success||!j.cards.length){ list.textContent='Keine gespeicherten Karten.'; return; }
+      list.innerHTML='';
+      j.cards.forEach(fn=>{
+        const lbl=document.createElement('label'); lbl.classList.add('card-label');
+        const cb=document.createElement('input'); cb.type='checkbox';
+        const img=document.createElement('img'); img.src='/gespeicherte_Karten/'+encodeURIComponent(fn);
+        lbl.append(cb,img); list.append(lbl);
+      });
+    }
+
+    // Init
+    loadDeckFromServer();
+    drawCard();
+  });
   </script>
 </body>
 </html>
